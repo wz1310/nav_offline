@@ -20,37 +20,61 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Setup Python ───────────────────────────────────────────────────
+      # ── 2. Setup JDK 17 (wajib untuk sdkmanager terbaru) ─────────────────
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      # ── 3. Setup Python 3.10 ──────────────────────────────────────────────
       - name: Setup Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # ── 3. System dependencies ────────────────────────────────────────────
+      # ── 4. System dependencies ────────────────────────────────────────────
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y \
             git zip unzip \
-            openjdk-17-jdk \
             autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev \
-            build-essential ccache \
-            libltdl-dev
+            build-essential ccache libltdl-dev
 
-      # ── 4. Setup Android SDK dengan license sudah di-accept ───────────────
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # ── 5. Accept Android SDK licenses (tulis hash langsung) ──────────────
+      - name: Accept Android SDK licenses
+        run: |
+          ANDROID_SDK=$ANDROID_SDK_ROOT
+          mkdir -p "$ANDROID_SDK/licenses"
+          # android-sdk-license
+          printf "24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n" \
+            > "$ANDROID_SDK/licenses/android-sdk-license"
+          # android-sdk-preview-license
+          printf "84831b9409646a918e30573bab4c9c91346d8abd\n" \
+            > "$ANDROID_SDK/licenses/android-sdk-preview-license"
+          # android-googletv-license
+          printf "601085b94cd77f0b54ff86406957099ebe79c4d6\n" \
+            > "$ANDROID_SDK/licenses/android-googletv-license"
+          # intel-android-extra-license
+          printf "d975f751698a77b662f1254ddbeed3901e976f5a\n" \
+            > "$ANDROID_SDK/licenses/intel-android-extra-license"
+          echo "Licenses written to $ANDROID_SDK/licenses"
+          ls "$ANDROID_SDK/licenses"
 
-      # ── 5. Install Android build tools & platform (license auto-accepted) ─
+      # ── 6. Install SDK components yang dibutuhkan buildozer ───────────────
       - name: Install Android SDK components
         run: |
-          sdkmanager --install "platform-tools" "build-tools;33.0.2" "platforms;android-33"
-          sdkmanager --licenses <<< "y" || true
+          sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
+            "platform-tools" \
+            "build-tools;33.0.2" \
+            "platforms;android-33" \
+            "ndk;25.2.9519653"
 
-      # ── 6. Cache buildozer ────────────────────────────────────────────────
-      - name: Cache buildozer global directory
+      # ── 7. Cache buildozer ────────────────────────────────────────────────
+      - name: Cache buildozer
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
@@ -58,7 +82,7 @@ jobs:
           restore-keys: |
             buildozer-${{ runner.os }}-
 
-      # ── 7. Cache pip ──────────────────────────────────────────────────────
+      # ── 8. Cache pip ──────────────────────────────────────────────────────
       - name: Cache pip
         uses: actions/cache@v4
         with:
@@ -67,48 +91,43 @@ jobs:
           restore-keys: |
             pip-${{ runner.os }}-
 
-      # ── 8. Install buildozer ──────────────────────────────────────────────
+      # ── 9. Install buildozer ──────────────────────────────────────────────
       - name: Install buildozer and Cython
         run: |
           pip install --upgrade pip wheel
           pip install buildozer==1.5.0 cython==0.29.37
 
-      # ── 9. Accept semua Android SDK licenses ─────────────────────────────
-      - name: Accept Android SDK licenses
-        run: |
-          yes | sdkmanager --licenses || true
-          mkdir -p $ANDROID_SDK_ROOT/licenses
-          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo "84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_SDK_ROOT/licenses/android-sdk-preview-license
-
       # ── 10. Konfigurasi buildozer pakai SDK yang sudah ada ────────────────
-      - name: Configure buildozer to use existing SDK
+      - name: Configure buildozer SDK paths
         run: |
           mkdir -p ~/.buildozer/android/platform
-          # Symlink SDK yang sudah di-setup ke lokasi yang buildozer cari
-          ln -sfn $ANDROID_SDK_ROOT ~/.buildozer/android/platform/android-sdk
-          # Copy licenses ke lokasi buildozer
+          # Symlink SDK & NDK ke lokasi yang buildozer cari
+          ln -sfn $ANDROID_SDK_ROOT \
+            ~/.buildozer/android/platform/android-sdk
+          ln -sfn $ANDROID_SDK_ROOT/ndk/25.2.9519653 \
+            ~/.buildozer/android/platform/android-ndk-r25b
+          # Copy licenses
           mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
-          cp -f $ANDROID_SDK_ROOT/licenses/* ~/.buildozer/android/platform/android-sdk/licenses/ 2>/dev/null || true
+          cp -f $ANDROID_SDK_ROOT/licenses/* \
+            ~/.buildozer/android/platform/android-sdk/licenses/ 2>/dev/null || true
+          echo "SDK path: $(readlink -f ~/.buildozer/android/platform/android-sdk)"
+          echo "NDK path: $(readlink -f ~/.buildozer/android/platform/android-ndk-r25b)"
 
       # ── 11. Build APK ─────────────────────────────────────────────────────
       - name: Build APK (debug)
         run: |
           buildozer -v android debug 2>&1 | tee build.log
         env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+          JAVA_HOME: ${{ env.JAVA_HOME }}
 
-      # ── 12. List build output ─────────────────────────────────────────────
+      # ── 12. List output ───────────────────────────────────────────────────
       - name: List build output
         if: always()
         run: |
           echo "=== bin/ ==="
           ls -la bin/ 2>/dev/null || echo "bin/ tidak ada"
           echo "=== APK search ==="
-          find . -name "*.apk" 2>/dev/null || echo "Tidak ada APK"
+          find . -name "*.apk" 2>/dev/null || echo "Tidak ada APK ditemukan"
 
       # ── 13. Upload APK ────────────────────────────────────────────────────
       - name: Upload APK
