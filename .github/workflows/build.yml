@@ -7,14 +7,10 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-
 jobs:
   build-apk:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       # ── 1. Checkout ───────────────────────────────────────────────────────
@@ -39,67 +35,25 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y \
-            git zip unzip \
+            git zip unzip wget \
             autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev \
-            build-essential ccache libltdl-dev
+            build-essential ccache libltdl-dev \
+            lld
 
-      # ── 5. Cari sdkmanager & accept licenses ──────────────────────────────
-      - name: Setup Android SDK licenses and components
+      # ── 5. Install buildozer & Cython ─────────────────────────────────────
+      - name: Install buildozer and Cython
         run: |
-          # Cari sdkmanager di semua kemungkinan lokasi
-          SDKMANAGER=""
-          for p in \
-            "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
-            "$ANDROID_SDK_ROOT/cmdline-tools/9.0/bin/sdkmanager" \
-            "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager" \
-            "$(find /usr/local/lib/android -name sdkmanager 2>/dev/null | head -1)"; do
-            if [ -f "$p" ]; then
-              SDKMANAGER="$p"
-              break
-            fi
-          done
+          pip install --upgrade pip wheel
+          pip install buildozer==1.5.0 cython==0.29.37
 
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager tidak ditemukan, download manual..."
-            mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
-              -O /tmp/cmdtools.zip
-            unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools
-            mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
-            mv /tmp/cmdtools/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
-            SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          fi
-
-          echo "Menggunakan sdkmanager: $SDKMANAGER"
-          echo "SDKMANAGER=$SDKMANAGER" >> $GITHUB_ENV
-
-          # Tulis license files langsung (tidak perlu interactive prompt)
-          mkdir -p $ANDROID_SDK_ROOT/licenses
-          printf "24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n" \
-            > $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          printf "84831b9409646a918e30573bab4c9c91346d8abd\n" \
-            > $ANDROID_SDK_ROOT/licenses/android-sdk-preview-license
-          printf "601085b94cd77f0b54ff86406957099ebe79c4d6\n" \
-            > $ANDROID_SDK_ROOT/licenses/android-googletv-license
-          printf "d975f751698a77b662f1254ddbeed3901e976f5a\n" \
-            > $ANDROID_SDK_ROOT/licenses/intel-android-extra-license
-          echo "Licenses OK"
-
-          # Install komponen yang dibutuhkan
-          "$SDKMANAGER" --sdk_root=$ANDROID_SDK_ROOT \
-            "platform-tools" \
-            "build-tools;33.0.2" \
-            "platforms;android-33" \
-            "ndk;25.2.9519653"
-
-      # ── 6. Cache buildozer ────────────────────────────────────────────────
-      - name: Cache buildozer
+      # ── 6. Cache ~/.buildozer (SDK, NDK, p4a) ─────────────────────────────
+      - name: Cache buildozer global dir
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v3
           restore-keys: |
             buildozer-${{ runner.os }}-
 
@@ -112,46 +66,30 @@ jobs:
           restore-keys: |
             pip-${{ runner.os }}-
 
-      # ── 8. Install buildozer ──────────────────────────────────────────────
-      - name: Install buildozer and Cython
+      # ── 8. Pre-accept Android SDK licenses ────────────────────────────────
+      - name: Pre-accept Android SDK licenses
         run: |
-          pip install --upgrade pip wheel
-          pip install buildozer==1.5.0 cython==0.29.37
-
-      # ── 9. Konfigurasi buildozer pakai SDK yang sudah ada ─────────────────
-      - name: Configure buildozer SDK paths
-        run: |
-          mkdir -p ~/.buildozer/android/platform
-
-          # Symlink SDK
-          ln -sfn $ANDROID_SDK_ROOT \
-            ~/.buildozer/android/platform/android-sdk
-
-          # Symlink NDK
-          NDK_PATH="$ANDROID_SDK_ROOT/ndk/25.2.9519653"
-          if [ -d "$NDK_PATH" ]; then
-            ln -sfn "$NDK_PATH" \
-              ~/.buildozer/android/platform/android-ndk-r25b
-            echo "NDK linked: $NDK_PATH"
-          else
-            echo "WARNING: NDK tidak ditemukan di $NDK_PATH"
-            find $ANDROID_SDK_ROOT/ndk -maxdepth 1 2>/dev/null || echo "ndk folder kosong"
-          fi
-
-          # Copy licenses
           mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
-          cp -f $ANDROID_SDK_ROOT/licenses/* \
-            ~/.buildozer/android/platform/android-sdk/licenses/ 2>/dev/null || true
+          printf "24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n8933bad161af4178b1185d1a37fbf41ea5269c55\n" \
+            > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+          printf "84831b9409646a918e30573bab4c9c91346d8abd\n" \
+            > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+          printf "601085b94cd77f0b54ff86406957099ebe79c4d6\n" \
+            > ~/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
+          printf "d975f751698a77b662f1254ddbeed3901e976f5a\n" \
+            > ~/.buildozer/android/platform/android-sdk/licenses/intel-android-extra-license
+          echo "Licenses written."
 
-          echo "=== Buildozer platform dir ==="
-          ls -la ~/.buildozer/android/platform/
-
-      # ── 10. Build APK ─────────────────────────────────────────────────────
+      # ── 9. Build APK ──────────────────────────────────────────────────────
       - name: Build APK (debug)
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
         run: |
+          # Buildozer akan download SDK/NDK sendiri ke ~/.buildozer
+          # (atau menggunakan cache dari step sebelumnya)
           buildozer -v android debug 2>&1 | tee build.log
 
-      # ── 11. List output ───────────────────────────────────────────────────
+      # ── 10. List output ───────────────────────────────────────────────────
       - name: List build output
         if: always()
         run: |
@@ -160,7 +98,7 @@ jobs:
           echo "=== APK search ==="
           find . -name "*.apk" 2>/dev/null || echo "Tidak ada APK"
 
-      # ── 12. Upload APK ────────────────────────────────────────────────────
+      # ── 11. Upload APK ────────────────────────────────────────────────────
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
@@ -169,7 +107,7 @@ jobs:
           path: bin/*.apk
           retention-days: 30
 
-      # ── 13. Upload build log (selalu) ─────────────────────────────────────
+      # ── 12. Upload build log (selalu) ─────────────────────────────────────
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
