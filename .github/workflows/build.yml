@@ -48,14 +48,13 @@ jobs:
           pip install buildozer==1.5.0 cython==0.29.37
 
       # ── 6. Cache ~/.buildozer ─────────────────────────────────────────────
-      #   Key bumped to v4 to bust the old symlink-based cache
       - name: Cache buildozer global dir
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v4
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v5
           restore-keys: |
-            buildozer-${{ runner.os }}-v4
+            buildozer-${{ runner.os }}-v5
 
       # ── 7. Cache pip ──────────────────────────────────────────────────────
       - name: Cache pip
@@ -66,43 +65,68 @@ jobs:
           restore-keys: |
             pip-${{ runner.os }}-
 
-      # ── 8. Fix double-nested SDK (sdk/sdk/) from stale cache ─────────────
-      - name: Fix SDK structure if double-nested
+      # ── 8. Setup Android SDK with sdkmanager ──────────────────────────────
+      # Buildozer 1.5 expects sdkmanager at tools/bin/sdkmanager (old path).
+      # Google no longer ships that; we install cmdline-tools and symlink.
+      - name: Setup Android SDK + sdkmanager
         run: |
           SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
 
-          # If the SDK dir is a symlink, remove it — we want a real directory
+          # Remove any stale symlink or empty dir left over from cache
           if [ -L "$SDK_DIR" ]; then
-            echo "Removing stale symlink at $SDK_DIR"
+            echo "Removing stale symlink $SDK_DIR"
             rm -f "$SDK_DIR"
           fi
 
-          # If tools/bin/sdkmanager is missing but sdk/tools/bin/sdkmanager exists,
-          # the SDK is double-nested. Flatten it.
-          if [ -d "$SDK_DIR/sdk" ] && [ ! -d "$SDK_DIR/tools" ]; then
-            echo "Detected double-nested SDK — flattening $SDK_DIR/sdk/ → $SDK_DIR/"
-            # Move everything from sdk/ up one level
-            mv "$SDK_DIR/sdk/"* "$SDK_DIR/" 2>/dev/null || true
-            rmdir "$SDK_DIR/sdk" 2>/dev/null || true
-            echo "SDK structure after fix:"
-            ls "$SDK_DIR"
+          mkdir -p "$SDK_DIR"
+
+          # Only download if sdkmanager not already present (cache hit)
+          if [ ! -f "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ]; then
+            echo "Downloading Android Command Line Tools..."
+            wget -q \
+              "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" \
+              -O /tmp/cmdtools.zip
+            mkdir -p /tmp/cmdtools_extract
+            unzip -q /tmp/cmdtools.zip -d /tmp/cmdtools_extract
+            mkdir -p "$SDK_DIR/cmdline-tools/latest"
+            mv /tmp/cmdtools_extract/cmdline-tools/* "$SDK_DIR/cmdline-tools/latest/"
+            rm -rf /tmp/cmdtools.zip /tmp/cmdtools_extract
           else
-            echo "SDK structure looks fine (or SDK not yet downloaded)."
+            echo "sdkmanager already present (cache hit)"
           fi
 
-      # ── 9. Pre-accept Android SDK licenses ────────────────────────────────
-      - name: Pre-accept Android SDK licenses
+          # Create compatibility symlink at the path buildozer 1.5 expects
+          mkdir -p "$SDK_DIR/tools/bin"
+          ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" \
+                 "$SDK_DIR/tools/bin/sdkmanager"
+          ln -sf "$SDK_DIR/cmdline-tools/latest/bin/avdmanager" \
+                 "$SDK_DIR/tools/bin/avdmanager"
+
+          echo "sdkmanager version:"
+          "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --version
+
+      # ── 9. Accept licenses + install required SDK components ──────────────
+      - name: Accept SDK licenses and install components
         run: |
-          mkdir -p "$HOME/.buildozer/android/platform/android-sdk/licenses"
+          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+
+          # Write license files (avoids interactive prompt)
+          mkdir -p "$SDK_DIR/licenses"
           printf "24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n8933bad161af4178b1185d1a37fbf41ea5269c55\n" \
-            > "$HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license"
+            > "$SDK_DIR/licenses/android-sdk-license"
           printf "84831b9409646a918e30573bab4c9c91346d8abd\n" \
-            > "$HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license"
-          printf "601085b94cd77f0b54ff86406957099ebe79c4d6\n" \
-            > "$HOME/.buildozer/android/platform/android-sdk/licenses/android-googletv-license"
-          printf "d975f751698a77b662f1254ddbeed3901e976f5a\n" \
-            > "$HOME/.buildozer/android/platform/android-sdk/licenses/intel-android-extra-license"
-          echo "Licenses written."
+            > "$SDK_DIR/licenses/android-sdk-preview-license"
+
+          # Install required components (skip if already cached)
+          "$SDKMANAGER" --sdk_root="$SDK_DIR" \
+            "platform-tools" \
+            "build-tools;33.0.2" \
+            "platforms;android-33" \
+            2>&1 | grep -v "^Warning:" || true
+
+          echo "=== SDK components installed ==="
+          ls "$SDK_DIR"
 
       # ── 10. Build APK ─────────────────────────────────────────────────────
       - name: Build APK (debug)
@@ -127,7 +151,7 @@ jobs:
           path: bin/*.apk
           retention-days: 30
 
-      # ── 13. Upload build log (selalu) ─────────────────────────────────────
+      # ── 13. Upload build log ──────────────────────────────────────────────
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
