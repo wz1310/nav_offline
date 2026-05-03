@@ -1,0 +1,22 @@
+# Buildozer
+.buildozer/
+bin/
+build.log
+
+# Data peta (terlalu besar untuk git)
+data/
+*.osm.pbf
+*.pkl
+*.graphml
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
