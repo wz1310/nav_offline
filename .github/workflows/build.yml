@@ -41,7 +41,8 @@ jobs:
             gettext autopoint \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev \
-            build-essential ccache libltdl-dev
+            build-essential ccache libltdl-dev \
+            libbz2-dev lzma liblzma-dev
 
       # 4. Buildozer & Cython
       - name: Install buildozer and Cython
@@ -54,9 +55,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v7
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v8
           restore-keys: |
-            buildozer-${{ runner.os }}-v7
+            buildozer-${{ runner.os }}-v8
 
       # 6. Setup Android SDK (cmdline-tools + accept licenses)
       - name: Install Android SDK tools
