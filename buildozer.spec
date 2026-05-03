@@ -5,12 +5,15 @@ package.domain = com.offline.nav
 
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,txt
+source.exclude_dirs = data,tests,.git,.github,__pycache__
 
 version = 1.0.0
 
-requirements = python3,kivy==2.3.0,osmnx,networkx,requests,certifi,charset-normalizer,idna,urllib3,shapely,pyproj,geopandas,fiona,numpy,pandas
+# Requirements — hanya yang benar-benar dibutuhkan saat runtime di Android
+# osmnx & networkx dipakai untuk download + routing
+requirements = python3,kivy==2.3.0,osmnx,networkx,requests,certifi,charset-normalizer,idna,urllib3,shapely,pyproj,numpy,pandas,fiona,geopandas
 
-# Orientasi layar
+# Orientasi
 orientation = portrait
 
 # Android permissions
@@ -22,15 +25,18 @@ android.minapi = 21
 android.ndk = 25b
 android.sdk = 33
 
-# Arsitektur (arm64-v8a untuk HP modern, armeabi-v7a untuk HP lama)
-android.archs = arm64-v8a, armeabi-v7a
+# Hanya arm64 dulu untuk mempercepat build
+android.archs = arm64-v8a
+
+# Gradle
+android.gradle_dependencies =
 
 # Fullscreen
 fullscreen = 0
 
-# Log level (0=error, 1=info, 2=debug)
-log_level = 1
+# Log
+log_level = 2
 
 [buildozer]
-log_level = 1
+log_level = 2
 warn_on_root = 1

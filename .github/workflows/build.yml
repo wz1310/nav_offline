@@ -5,15 +5,18 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:   # bisa trigger manual dari GitHub UI
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-apk:
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
-      # ── 1. Checkout kode ──────────────────────────────────────────────────
+      # ── 1. Checkout ───────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -23,18 +26,20 @@ jobs:
         with:
           python-version: "3.10"
 
-      # ── 3. Install system dependencies ───────────────────────────────────
+      # ── 3. System dependencies ────────────────────────────────────────────
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y \
-            git zip unzip openjdk-17-jdk \
+            git zip unzip \
+            openjdk-17-jdk \
             autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev \
-            build-essential ccache
+            build-essential ccache \
+            libltdl-dev
 
-      # ── 4. Cache buildozer global dir ────────────────────────────────────
+      # ── 4. Cache buildozer ────────────────────────────────────────────────
       - name: Cache buildozer global directory
         uses: actions/cache@v4
         with:
@@ -52,28 +57,39 @@ jobs:
           restore-keys: |
             pip-${{ runner.os }}-
 
-      # ── 6. Install buildozer & Cython ─────────────────────────────────────
-      - name: Install buildozer
+      # ── 6. Install buildozer ──────────────────────────────────────────────
+      - name: Install buildozer and Cython
         run: |
-          pip install --upgrade pip
-          pip install buildozer cython==0.29.37
+          pip install --upgrade pip wheel
+          pip install buildozer==1.5.0 cython==0.29.37
 
-      # ── 7. Build APK (debug) ──────────────────────────────────────────────
-      - name: Build APK
+      # ── 7. Build APK ──────────────────────────────────────────────────────
+      - name: Build APK (debug)
         run: |
           buildozer -v android debug 2>&1 | tee build.log
+          echo "Build exit code: $?"
 
-      # ── 8. Upload APK sebagai artifact ───────────────────────────────────
-      - name: Upload APK artifact
+      # ── 8. List bin directory ─────────────────────────────────────────────
+      - name: List build output
+        if: always()
+        run: |
+          echo "=== bin/ directory ==="
+          ls -la bin/ 2>/dev/null || echo "bin/ tidak ada"
+          echo "=== .buildozer/android/platform/build-*/dists/ ==="
+          find .buildozer -name "*.apk" 2>/dev/null || echo "Tidak ada APK ditemukan"
+
+      # ── 9. Upload APK ─────────────────────────────────────────────────────
+      - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: navigasi-indonesia-apk
           path: bin/*.apk
           retention-days: 30
 
-      # ── 9. Upload build log jika gagal ───────────────────────────────────
-      - name: Upload build log on failure
-        if: failure()
+      # ── 10. Upload log (selalu, untuk debug) ──────────────────────────────
+      - name: Upload build log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
