@@ -78,10 +78,10 @@ def download_area(area_name, on_progress, on_error):
     
     def _task():
         try:
-            # Setup headers yang akan digunakan untuk semua request
+            # Setup headers yang sudah teruji sukses (menghindari error 406)
             headers = {
-                'User-Agent': 'Mozilla/5.0 (compatible; NavigasiIndonesia/1.1; +https://github.com/wz1310/nav_offline)',
-                'Accept-Language': 'id,en-US;q=0.7,en;q=0.3',
+                'User-Agent': 'NavigasiIndonesia/1.1',
+                'Accept': 'application/json',
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
 
