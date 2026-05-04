@@ -11,6 +11,7 @@ import json
 import ssl
 import networkx as nx
 import math
+import os
 from src.routing import save_graph, DATA_DIR
 
 # Buat context SSL yang mengabaikan verifikasi sertifikat (untuk menghindari error di Android)
@@ -28,7 +29,6 @@ AREA_OPTIONS = {
     "Bali (Denpasar)": "Denpasar, Indonesia",
 }
 
-
 def haversine(lat1, lon1, lat2, lon2):
     """Hitung jarak antara dua koordinat dalam meter."""
     R = 6371000 # Radius bumi dalam meter
@@ -39,20 +39,29 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
 def build_graph_from_data(osm_data, area_name, on_progress, on_error):
-    """Logika utama membangun graph dari data JSON OSM."""
+    """Membangun DiGraph agar mendukung jalan satu arah."""
     try:
         on_progress("Membangun jaringan navigasi...", 0.7)
-        G = nx.Graph()
+        # Gunakan DiGraph (Directed) untuk mendukung arah jalan
+        G = nx.DiGraph()
         nodes = {el['id']: (el['lat'], el['lon']) for el in osm_data['elements'] if el['type'] == 'node'}
         
         for el in osm_data['elements']:
             if el['type'] == 'way':
+                tags = el.get('tags', {})
+                # Cek apakah jalan ini satu arah
+                oneway = tags.get('oneway') in ['yes', '1', 'true']
                 way_nodes = el.get('nodes', [])
+                
                 for i in range(len(way_nodes) - 1):
                     u, v = way_nodes[i], way_nodes[i+1]
                     if u in nodes and v in nodes:
                         dist = haversine(nodes[u][0], nodes[u][1], nodes[v][0], nodes[v][1])
+                        # Tambahkan arah maju
                         G.add_edge(u, v, length=dist)
+                        # Jika bukan satu arah, tambahkan arah balik
+                        if not oneway:
+                            G.add_edge(v, u, length=dist)
         
         if G.number_of_edges() == 0:
             on_error("Data tidak mengandung jaringan jalan yang valid.")
@@ -86,7 +95,7 @@ def download_area(area_name, on_progress, on_error):
                 geo_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query_text)}&format=json&limit=1"
                 try:
                     req_geo = urllib.request.Request(geo_url, headers=headers)
-                    with urllib.request.urlopen(geo_url, timeout=15, context=ssl_context) as response:
+                    with urllib.request.urlopen(req_geo, timeout=15, context=ssl_context) as response:
                         data = json.loads(response.read().decode())
                 except Exception as geoe:
                     on_error(f"Error Nominatim: {str(geoe)}")
