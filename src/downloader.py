@@ -56,29 +56,35 @@ def download_area(area_name: str,
         try:
             # 1. Geocoding via Nominatim
             on_progress("Mencari koordinat area...", 0.1)
-            # Gunakan User-Agent yang lebih spesifik dan unik
-            headers = {
-                'User-Agent': 'NavigasiIndonesiaOfflineApp/1.1 (Android; Kivy; contact: wiza_nav@example.com)',
-                'Accept': 'application/json',
-                'Referer': 'https://github.com/wz1310/nav_offline'
-            }
             
-            geo_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query_text)}&format=json&limit=1"
-            
-            try:
-                req_geo = urllib.request.Request(geo_url, headers=headers)
-                with urllib.request.urlopen(req_geo, timeout=15, context=ssl_context) as response:
-                    data = json.loads(response.read().decode())
-            except Exception as geoe:
-                on_error(f"Error Nominatim (Geocoding): {str(geoe)}")
-                return
+            # Hardcoded coordinates untuk Jakarta (agar bypass error 403 Nominatim)
+            if area_name == "Jakarta & sekitarnya":
+                # [south, north, west, east]
+                bbox = ["-6.3708", "-6.0712", "106.6521", "107.0016"]
+                s, n, w, e = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
+                on_progress("Koordinat Jakarta ditemukan (cached)...", 0.2)
+            else:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (compatible; NavigasiIndonesia/1.1; +https://github.com/wz1310/nav_offline)',
+                    'Accept-Language': 'id,en-US;q=0.7,en;q=0.3'
+                }
                 
-            if not data:
-                on_error(f"Area tidak ditemukan: {area_name}")
-                return
-            
-            bbox = data[0]['boundingbox']  # [south, north, west, east]
-            s, n, w, e = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
+                geo_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query_text)}&format=json&limit=1"
+                
+                try:
+                    req_geo = urllib.request.Request(geo_url, headers=headers)
+                    with urllib.request.urlopen(req_geo, timeout=15, context=ssl_context) as response:
+                        data = json.loads(response.read().decode())
+                except Exception as geoe:
+                    on_error(f"Error Nominatim (Geocoding): {str(geoe)}")
+                    return
+                    
+                if not data:
+                    on_error(f"Area tidak ditemukan: {area_name}")
+                    return
+                
+                bbox = data[0]['boundingbox']
+                s, n, w, e = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
 
             # 2. Query Overpass API
             on_progress("Mengunduh jaringan jalan (Overpass)...", 0.3)
