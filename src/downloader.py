@@ -54,6 +54,12 @@ def download_area(area_name: str,
 
     def _task():
         try:
+            # Setup headers yang akan digunakan untuk semua request
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (compatible; NavigasiIndonesia/1.1; +https://github.com/wz1310/nav_offline)',
+                'Accept-Language': 'id,en-US;q=0.7,en;q=0.3'
+            }
+
             # 1. Geocoding via Nominatim
             on_progress("Mencari koordinat area...", 0.1)
             
@@ -64,11 +70,6 @@ def download_area(area_name: str,
                 s, n, w, e = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
                 on_progress("Koordinat Jakarta ditemukan (cached)...", 0.2)
             else:
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (compatible; NavigasiIndonesia/1.1; +https://github.com/wz1310/nav_offline)',
-                    'Accept-Language': 'id,en-US;q=0.7,en;q=0.3'
-                }
-                
                 geo_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query_text)}&format=json&limit=1"
                 
                 try:
