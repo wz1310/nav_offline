@@ -56,7 +56,10 @@ def download_area(area_name: str,
         try:
             # 1. Geocoding via Nominatim
             on_progress("Mencari koordinat area...", 0.1)
-            headers = {'User-Agent': 'NavigasiIndonesia/1.0'}
+            headers = {
+                'User-Agent': 'NavigasiIndonesia/1.0 (contact: your-email@example.com)',
+                'Accept': 'application/json'
+            }
             geo_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query_text)}&format=json&limit=1"
             
             req_geo = urllib.request.Request(geo_url, headers=headers)
@@ -83,7 +86,8 @@ def download_area(area_name: str,
             overpass_url = "https://overpass-api.de/api/interpreter"
             post_data = urllib.parse.urlencode({'data': overpass_query}).encode()
             
-            req_overpass = urllib.request.Request(overpass_url, data=post_data)
+            # Tambahkan headers ke request Overpass juga!
+            req_overpass = urllib.request.Request(overpass_url, data=post_data, headers=headers)
             with urllib.request.urlopen(req_overpass, timeout=90, context=ssl_context) as response:
                 osm_data = json.loads(response.read().decode())
 
