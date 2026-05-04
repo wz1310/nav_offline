@@ -128,49 +128,37 @@ class DownloadScreen(Screen):
         self._bg.size = instance.size
 
     def _show_file_picker(self, *args):
-        # Popup untuk memilih file
-        content = BoxLayout(orientation='vertical')
-        
-        # Gunakan path yang lebih umum atau root /sdcard
-        # Filter case-insensitive
-        file_chooser = FileChooserIconView(
-            path='/sdcard',
-            filters=[lambda folder, filename: filename.lower().endswith('.json')]
-        )
-        content.add_widget(file_chooser)
-        
-        btn_layout = BoxLayout(size_hint_y=None, height=50, spacing=10)
-        btn_cancel = Button(text="Batal")
-        btn_select = Button(text="Pilih File", background_color=(0, 0.7, 0, 1))
-        
-        btn_layout.add_widget(btn_cancel)
-        btn_layout.add_widget(btn_select)
-        content.add_widget(btn_layout)
-
-        self._popup = Popup(title="Pilih file JSON hasil download", content=content, size_hint=(0.9, 0.9))
-        
-        btn_cancel.bind(on_release=self._popup.dismiss)
-        btn_select.bind(on_release=lambda x: self._handle_import(file_chooser.selection))
-        
-        self._popup.open()
+        # Gunakan FileChooser dari Plyer (Native Android Picker)
+        from plyer import filechooser
+        try:
+            filechooser.open_file(
+                title="Pilih file JSON hasil download",
+                filters=[("JSON files", "*.json")],
+                on_selection=self._handle_import
+            )
+        except Exception as e:
+            self.status_label.text = f"❌ Gagal membuka picker: {str(e)}"
 
     def _handle_import(self, selection):
         if not selection:
             return
-        self._popup.dismiss()
+            
         file_path = selection[0]
         area = self.spinner.text
         
-        self.btn_import.disabled = True
-        self.btn_download.disabled = True
-        self.status_label.text = "⏳ Memproses file lokal..."
-        
-        import_local_json(
-            file_path=file_path,
-            area_name=area,
-            on_progress=self._on_progress,
-            on_error=self._on_error
-        )
+        # UI update di main thread
+        def _start_proc(dt):
+            self.btn_import.disabled = True
+            self.btn_download.disabled = True
+            self.status_label.text = f"⏳ Memproses: {os.path.basename(file_path)}"
+            
+            import_local_json(
+                file_path=file_path,
+                area_name=area,
+                on_progress=self._on_progress,
+                on_error=self._on_error
+            )
+        Clock.schedule_once(_start_proc)
 
     def _start_download(self, *args):
         self.btn_download.disabled = True

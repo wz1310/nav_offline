@@ -9,7 +9,7 @@ source.exclude_dirs = data,tests,.git,.github,__pycache__
 
 version = 1.0.0
 
-requirements = python3,kivy==2.3.0,networkx==3.1,openssl,android
+requirements = python3,kivy==2.3.0,networkx==3.1,openssl,android,plyer
 
 orientation = portrait
 
