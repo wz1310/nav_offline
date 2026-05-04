@@ -1,10 +1,13 @@
 """
 Download data OSM per area menggunakan Overpass API secara langsung,
 lalu simpan sebagai graph pickle. Menggantikan osmnx karena masalah build di Android.
+Menggunakan urllib (std lib) alih-alih requests untuk menghindari masalah arsitektur .so di Android.
 """
 
 import threading
-import requests
+import urllib.request
+import urllib.parse
+import json
 import networkx as nx
 import math
 from src.routing import save_graph, DATA_DIR
@@ -50,9 +53,12 @@ def download_area(area_name: str,
             # 1. Geocoding via Nominatim
             on_progress("Mencari koordinat area...", 0.1)
             headers = {'User-Agent': 'NavigasiIndonesia/1.0'}
-            geo_url = f"https://nominatim.openstreetmap.org/search?q={query_text}&format=json&limit=1"
-            res = requests.get(geo_url, headers=headers, timeout=10)
-            data = res.json()
+            geo_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query_text)}&format=json&limit=1"
+            
+            req_geo = urllib.request.Request(geo_url, headers=headers)
+            with urllib.request.urlopen(req_geo, timeout=15) as response:
+                data = json.loads(response.read().decode())
+                
             if not data:
                 on_error(f"Area tidak ditemukan: {area_name}")
                 return
@@ -62,7 +68,6 @@ def download_area(area_name: str,
 
             # 2. Query Overpass API
             on_progress("Mengunduh jaringan jalan (Overpass)...", 0.3)
-            # Filter hanya jalan yang bisa dilalui mobil
             overpass_query = f"""
             [out:json][timeout:60];
             (
@@ -72,8 +77,11 @@ def download_area(area_name: str,
             out body;
             """
             overpass_url = "https://overpass-api.de/api/interpreter"
-            res = requests.post(overpass_url, data={'data': overpass_query}, timeout=60)
-            osm_data = res.json()
+            post_data = urllib.parse.urlencode({'data': overpass_query}).encode()
+            
+            req_overpass = urllib.request.Request(overpass_url, data=post_data)
+            with urllib.request.urlopen(req_overpass, timeout=90) as response:
+                osm_data = json.loads(response.read().decode())
 
             if 'elements' not in osm_data or not osm_data['elements']:
                 on_error("Tidak ada data jalan di area ini.")
@@ -97,8 +105,6 @@ def download_area(area_name: str,
                         if u in nodes and v in nodes:
                             dist = haversine(nodes[u][0], nodes[u][1], nodes[v][0], nodes[v][1])
                             G.add_edge(u, v, length=dist)
-                            # Jika bukan one-way, tambahkan arah sebaliknya
-                            # Simple check: asumsikan semua dua arah kecuali ada tag oneway
                             tags = el.get('tags', {})
                             if tags.get('oneway') != 'yes':
                                 G.add_edge(v, u, length=dist)

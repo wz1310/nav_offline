@@ -1,4 +1,2 @@
 kivy==2.3.0
-networkx==3.3
-requests==2.32.3
-certifi
+networkx==3.1
