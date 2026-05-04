@@ -3,8 +3,9 @@
 bin/
 build.log
 
-# Data peta (terlalu besar untuk git)
+# Data peta (izinkan .graph untuk dipaketkan ke APK)
 data/
+!data/*.graph
 *.osm.pbf
 *.pkl
 *.graphml
