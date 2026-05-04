@@ -58,10 +58,10 @@ def build_graph_from_data(osm_data, area_name, on_progress, on_error):
                     if u in nodes and v in nodes:
                         dist = haversine(nodes[u][0], nodes[u][1], nodes[v][0], nodes[v][1])
                         # Tambahkan arah maju
-                        G.add_edge(u, v, length=dist)
+                        G.add_edge(u, v, length=dist, type=tags.get('highway', 'unclassified'))
                         # Jika bukan satu arah, tambahkan arah balik
                         if not oneway:
-                            G.add_edge(v, u, length=dist)
+                            G.add_edge(v, u, length=dist, type=tags.get('highway', 'unclassified'))
         
         if G.number_of_edges() == 0:
             on_error("Data tidak mengandung jaringan jalan yang valid.")

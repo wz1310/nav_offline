@@ -15,7 +15,8 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.progressbar import ProgressBar
 from kivy.uix.scrollview import ScrollView
 from kivy.clock import Clock
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Rectangle, Line
+from kivy.uix.widget import Widget
 from kivy.utils import platform
 
 from src.routing import load_graph, find_route, DATA_DIR
@@ -23,6 +24,55 @@ from src.routing import load_graph, find_route, DATA_DIR
 MAP_HTML = os.path.join(DATA_DIR, "route_map.html")
 
 _graph = None  # graph di-load sekali saat layar dibuka
+
+class MapPreview(Widget):
+    """Widget sederhana untuk menggambar preview jaringan jalan."""
+    def draw_graph(self, G):
+        self.canvas.clear()
+        if G is None or G.number_of_nodes() == 0:
+            return
+
+        # Ambil bounding box
+        lats = [data.get('y', data.get('lat')) for n, data in G.nodes(data=True)]
+        lons = [data.get('x', data.get('lon')) for n, data in G.nodes(data=True)]
+        
+        if not lats or not lons: return
+        
+        min_lat, max_lat = min(lats), max(lats)
+        min_lon, max_lon = min(lons), max(lons)
+        
+        def to_screen(lat, lon):
+            # Normalisasi ke [0, 1] lalu ke ukuran widget
+            w, h = self.size
+            px, py = self.pos
+            x = (lon - min_lon) / (max_lon - min_lon) * w + px
+            y = (lat - min_lat) / (max_lat - min_lat) * h + py
+            return x, y
+
+        with self.canvas:
+            Color(0.2, 0.3, 0.4, 0.5)
+            
+            # Ambil sampling edge agar tidak lag (maks 10.000 garis)
+            edges = list(G.edges(data=True))
+            if len(edges) > 10000:
+                # Prioritaskan jalan utama jika ada atribut 'type'
+                main_roads = [e for e in edges if e[2].get('type') in ['motorway', 'trunk', 'primary', 'secondary']]
+                if len(main_roads) > 500:
+                    edges = main_roads[:10000]
+                else:
+                    step = len(edges) // 10000
+                    edges = edges[::step]
+            
+            for u, v, data in edges:
+                u_data, v_data = G.nodes[u], G.nodes[v]
+                u_lat = u_data.get('y', u_data.get('lat'))
+                u_lon = u_data.get('x', u_data.get('lon'))
+                v_lat = v_data.get('y', v_data.get('lat'))
+                v_lon = v_data.get('x', v_data.get('lon'))
+                
+                if None not in [u_lat, u_lon, v_lat, v_lon]:
+                    Line(points=[*to_screen(u_lat, u_lon), *to_screen(v_lat, v_lon)], width=1)
+
 
 
 class MapScreen(Screen):
@@ -47,9 +97,13 @@ class MapScreen(Screen):
             ))
         else:
             node_count = _graph.number_of_nodes()
-            Clock.schedule_once(lambda dt: self._set_status(
-                f"✅ Peta siap — {node_count:,} titik jalan dimuat."
-            ))
+            Clock.schedule_once(lambda dt: self._on_graph_loaded(_graph, node_count))
+
+    def _on_graph_loaded(self, G, node_count):
+        self._set_status(f"✅ Peta siap — {node_count:,} titik jalan dimuat.")
+        self.btn_map.opacity = 1
+        self.btn_map.disabled = False
+        self.preview.draw_graph(G)
 
     def _build_ui(self):
         root = BoxLayout(orientation="vertical", padding=16, spacing=10)
@@ -140,7 +194,9 @@ class MapScreen(Screen):
         self.btn_map.bind(on_press=self._open_map)
         root.add_widget(self.btn_map)
 
-        root.add_widget(Label())  # spacer
+        # Area Preview Peta
+        self.preview = MapPreview(size_hint_y=1)
+        root.add_widget(self.preview)
 
         self.add_widget(root)
 
