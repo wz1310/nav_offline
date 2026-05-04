@@ -44,20 +44,31 @@ jobs:
             build-essential ccache libltdl-dev \
             libbz2-dev lzma liblzma-dev
 
-      # 4. Buildozer & Cython
+      # 4. Pip Cache
+      - name: Cache Pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # 5. Buildozer & Cython
       - name: Install buildozer and Cython
         run: |
           pip install --upgrade pip wheel
           pip install buildozer==1.5.0 cython==0.29.37
 
-      # 5. Cache ~/.buildozer
+      # 6. Cache Buildozer SDK/NDK
       - name: Cache buildozer
         uses: actions/cache@v4
         with:
-          path: ~/.buildozer
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v8
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'requirements.txt') }}-v10
           restore-keys: |
-            buildozer-${{ runner.os }}-v8
+            buildozer-${{ runner.os }}-
 
       # 6. Setup Android SDK (cmdline-tools + accept licenses)
       - name: Install Android SDK tools
