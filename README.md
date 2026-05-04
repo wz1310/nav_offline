@@ -13,4 +13,4 @@ Aplikasi navigasi offline profesional berbasis React Native + MapLibre GL + Grap
 2. Jalankan Expo: `npx expo start`
 
 ## Build APK
-Setiap kali Anda melakukan push ke branch `master`, GitHub Actions akan otomatis mem-build APK baru di tab **Actions**.
+Setiap kali Anda melakukan push ke branch `master`, GitHub Actions akan otomatis mem-build APK baru di tab **Actions**. Sistem ini sekarang sudah dioptimalkan untuk React Native.
