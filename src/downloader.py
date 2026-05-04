@@ -48,7 +48,7 @@ def download_area(area_name: str,
     def _task():
         try:
             # 1. Geocoding via Nominatim
-            on_progress("Mencari koordinat area…", 0.1)
+            on_progress("Mencari koordinat area...", 0.1)
             headers = {'User-Agent': 'NavigasiIndonesia/1.0'}
             geo_url = f"https://nominatim.openstreetmap.org/search?q={query_text}&format=json&limit=1"
             res = requests.get(geo_url, headers=headers, timeout=10)
@@ -61,7 +61,7 @@ def download_area(area_name: str,
             s, n, w, e = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
 
             # 2. Query Overpass API
-            on_progress("Mengunduh jaringan jalan (Overpass)…", 0.3)
+            on_progress("Mengunduh jaringan jalan (Overpass)...", 0.3)
             # Filter hanya jalan yang bisa dilalui mobil
             overpass_query = f"""
             [out:json][timeout:60];
@@ -80,7 +80,7 @@ def download_area(area_name: str,
                 return
 
             # 3. Build Graph
-            on_progress("Membangun graph jaringan jalan…", 0.7)
+            on_progress("Membangun graph jaringan jalan...", 0.7)
             G = nx.MultiDiGraph()
             
             nodes = {}
@@ -103,7 +103,7 @@ def download_area(area_name: str,
                             if tags.get('oneway') != 'yes':
                                 G.add_edge(v, u, length=dist)
 
-            on_progress("Menyimpan data…", 0.9)
+            on_progress("Menyimpan data...", 0.9)
             save_graph(G)
 
             on_progress("Selesai!", 1.0)
