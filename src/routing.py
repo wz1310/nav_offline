@@ -24,10 +24,14 @@ def data_exists() -> bool:
     return os.path.exists(GRAPH_FILE)
 
 
-def save_graph(G) -> None:
+def save_graph(G, area_name: str = None) -> None:
     """Simpan graph ke disk."""
     with open(GRAPH_FILE, "wb") as f:
         pickle.dump(G, f, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    if area_name:
+        with open(AREAS_FILE, "w", encoding="utf-8") as f:
+            f.write(area_name)
 
 
 def load_graph():
