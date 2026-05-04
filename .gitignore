@@ -1,23 +1,23 @@
-# Buildozer
-.buildozer/
-bin/
-build.log
+node_modules/
+.expo/
+dist/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 
-# Data peta (izinkan .graph untuk dipaketkan ke APK)
-data/
-!data/*.graph
-*.osm.pbf
-*.pkl
-*.graphml
+# Android
+android/app/build/
+android/.gradle/
+android/local.properties
 
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-.env
-venv/
-.venv/
+# iOS
+ios/build/
+ios/Pods/
+ios/.xcode.env.local
 
-# OS
+# Misc
 .DS_Store
-Thumbs.db
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
