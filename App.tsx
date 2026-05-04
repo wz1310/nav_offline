@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, TextInput } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as Location from 'expo-location';
 
 // Setup MapLibre
 MapLibreGL.setAccessToken(null);
@@ -9,6 +10,15 @@ MapLibreGL.setAccessToken(null);
 export default function App() {
   const [destination, setDestination] = useState('');
   const [isNavigating, setIsNavigating] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Permission to access location was denied');
+      }
+    })();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -18,6 +28,7 @@ export default function App() {
         style={styles.map}
         styleURL="https://demotiles.maplibre.org/style.json"
         logoEnabled={false}
+        attributionEnabled={false}
       >
         <MapLibreGL.Camera
           zoomLevel={12}
