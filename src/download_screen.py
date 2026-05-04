@@ -1,17 +1,15 @@
-"""
-Layar pertama — pilih area dan download data peta.
-"""
-
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.spinner import Spinner
 from kivy.uix.progressbar import ProgressBar
+from kivy.uix.popup import Popup
+from kivy.uix.filechooser import FileChooserIconView
 from kivy.clock import Clock
 from kivy.graphics import Color, Rectangle
 
-from src.downloader import AREA_OPTIONS, download_area
+from src.downloader import AREA_OPTIONS, download_area, import_local_json
 
 
 class DownloadScreen(Screen):
@@ -43,7 +41,7 @@ class DownloadScreen(Screen):
         ))
 
         layout.add_widget(Label(
-            text="Pilih area untuk diunduh.\nSetelah selesai, app bisa dipakai tanpa internet.",
+            text="Pilih area untuk diunduh.\nAtau impor file JSON dari HP Anda.",
             font_size="14sp",
             color=(0.56, 0.64, 0.68, 1),
             halign="center",
@@ -72,7 +70,7 @@ class DownloadScreen(Screen):
 
         # Status label
         self.status_label = Label(
-            text="Pilih area lalu tekan Unduh.",
+            text="Siap untuk mengolah data peta.",
             font_size="13sp",
             color=(0.56, 0.64, 0.68, 1),
             size_hint_y=None,
@@ -81,9 +79,9 @@ class DownloadScreen(Screen):
         )
         layout.add_widget(self.status_label)
 
-        # Tombol unduh
+        # Tombol unduh online
         self.btn_download = Button(
-            text="⬇  Unduh Data Peta",
+            text="⬇  Unduh Online",
             size_hint_y=None,
             height=52,
             background_color=(0.08, 0.40, 0.75, 1),
@@ -94,7 +92,19 @@ class DownloadScreen(Screen):
         self.btn_download.bind(on_press=self._start_download)
         layout.add_widget(self.btn_download)
 
-        # Tombol lanjut (muncul setelah selesai)
+        # Tombol impor lokal
+        self.btn_import = Button(
+            text="📁  Impor File Lokal (.json)",
+            size_hint_y=None,
+            height=52,
+            background_color=(0.2, 0.25, 0.3, 1),
+            color=(1, 1, 1, 1),
+            font_size="16sp",
+        )
+        self.btn_import.bind(on_press=self._show_file_picker)
+        layout.add_widget(self.btn_import)
+
+        # Tombol lanjut
         self.btn_next = Button(
             text="▶  Mulai Navigasi",
             size_hint_y=None,
@@ -110,15 +120,54 @@ class DownloadScreen(Screen):
         layout.add_widget(self.btn_next)
 
         layout.add_widget(Label())  # spacer
-
         self.add_widget(layout)
 
     def _update_bg(self, instance, value):
         self._bg.pos = instance.pos
         self._bg.size = instance.size
 
+    def _show_file_picker(self, *args):
+        # Popup untuk memilih file
+        content = BoxLayout(orientation='vertical')
+        file_chooser = FileChooserIconView(filters=['*.json'], path='/sdcard/Download')
+        content.add_widget(file_chooser)
+        
+        btn_layout = BoxLayout(size_hint_y=None, height=50, spacing=10)
+        btn_cancel = Button(text="Batal")
+        btn_select = Button(text="Pilih File", background_color=(0, 0.7, 0, 1))
+        
+        btn_layout.add_widget(btn_cancel)
+        btn_layout.add_widget(btn_select)
+        content.add_widget(btn_layout)
+
+        self._popup = Popup(title="Pilih file JSON hasil download", content=content, size_hint=(0.9, 0.9))
+        
+        btn_cancel.bind(on_release=self._popup.dismiss)
+        btn_select.bind(on_release=lambda x: self._handle_import(file_chooser.selection))
+        
+        self._popup.open()
+
+    def _handle_import(self, selection):
+        if not selection:
+            return
+        self._popup.dismiss()
+        file_path = selection[0]
+        area = self.spinner.text
+        
+        self.btn_import.disabled = True
+        self.btn_download.disabled = True
+        self.status_label.text = "⏳ Memproses file lokal..."
+        
+        import_local_json(
+            file_path=file_path,
+            area_name=area,
+            on_progress=self._on_progress,
+            on_error=self._on_error
+        )
+
     def _start_download(self, *args):
         self.btn_download.disabled = True
+        self.btn_import.disabled = True
         self.btn_download.text = "⏳ Mengunduh…"
         self.progress.value = 0
         area = self.spinner.text
@@ -126,7 +175,6 @@ class DownloadScreen(Screen):
         download_area(
             area_name=area,
             on_progress=self._on_progress,
-            on_done=self._on_done,
             on_error=self._on_error,
         )
 
@@ -134,23 +182,25 @@ class DownloadScreen(Screen):
         def _update(dt):
             self.status_label.text = message
             self.progress.value = int(pct * 100)
+            if pct >= 1.0:
+                self._on_done()
         Clock.schedule_once(_update)
 
     def _on_done(self):
-        def _update(dt):
-            self.status_label.text = "✅ Data berhasil diunduh!"
-            self.progress.value = 100
-            self.btn_download.text = "⬇  Unduh Area Lain"
-            self.btn_download.disabled = False
-            self.btn_next.opacity = 1
-            self.btn_next.disabled = False
-        Clock.schedule_once(_update)
+        self.status_label.text = "✅ Berhasil! Data siap dipakai."
+        self.progress.value = 100
+        self.btn_download.text = "⬇  Unduh Lainnya"
+        self.btn_download.disabled = False
+        self.btn_import.disabled = False
+        self.btn_next.opacity = 1
+        self.btn_next.disabled = False
 
     def _on_error(self, message: str):
         def _update(dt):
             self.status_label.text = f"❌ {message}"
             self.btn_download.text = "⬇  Coba Lagi"
             self.btn_download.disabled = False
+            self.btn_import.disabled = False
         Clock.schedule_once(_update)
 
     def _go_to_map(self, *args):
