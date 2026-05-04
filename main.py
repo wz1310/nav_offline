@@ -7,6 +7,14 @@ import os
 import sys
 import traceback
 
+# Mocking bz2 & lzma: NetworkX memerlukan ini saat impor, tapi p4a terkadang 
+# tidak menyertakannya dalam distribusi Python Android. 
+# Karena kita tidak menggunakan kompresi bz2/lzma, kita bisa memalsukannya.
+from types import ModuleType
+for mod_name in ['_bz2', 'bz2', '_lzma', 'lzma']:
+    if mod_name not in sys.modules:
+        sys.modules[mod_name] = ModuleType(mod_name)
+
 # Pastikan environment config bersih
 os.environ.setdefault("KIVY_NO_ENV_CONFIG", "1")
 
