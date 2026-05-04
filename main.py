@@ -42,12 +42,25 @@ def show_error_screen(error_msg):
             )
     ErrorApp().run()
 
+def request_android_permissions():
+    """Minta izin penyimpanan di Android."""
+    from kivy.utils import platform
+    if platform == 'android':
+        from android.permissions import request_permissions, Permission
+        request_permissions([
+            Permission.READ_EXTERNAL_STORAGE,
+            Permission.WRITE_EXTERNAL_STORAGE
+        ])
+
 try:
     from kivy.app import App
     from kivy.uix.screenmanager import ScreenManager, SlideTransition
     from kivy.core.window import Window
     from kivy.utils import platform
+    from kivy.uix.boxlayout import BoxLayout
+    from kivy.uix.filechooser import FileChooserIconView
 
+    import os
     from src.download_screen import DownloadScreen
     from src.map_screen import MapScreen
 
@@ -57,6 +70,9 @@ try:
 
     class NavApp(App):
         title = "Navigasi Indonesia Offline"
+
+        def on_start(self):
+            request_android_permissions()
 
         def build(self):
             try:

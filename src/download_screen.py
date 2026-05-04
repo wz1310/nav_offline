@@ -9,6 +9,7 @@ from kivy.uix.filechooser import FileChooserIconView
 from kivy.clock import Clock
 from kivy.graphics import Color, Rectangle
 
+import os
 from src.downloader import AREA_OPTIONS, download_area, import_local_json
 
 
@@ -129,7 +130,13 @@ class DownloadScreen(Screen):
     def _show_file_picker(self, *args):
         # Popup untuk memilih file
         content = BoxLayout(orientation='vertical')
-        file_chooser = FileChooserIconView(filters=['*.json'], path='/sdcard/Download')
+        
+        # Gunakan path yang lebih umum atau root /sdcard
+        # Filter case-insensitive
+        file_chooser = FileChooserIconView(
+            path='/sdcard',
+            filters=[lambda folder, filename: filename.lower().endswith('.json')]
+        )
         content.add_widget(file_chooser)
         
         btn_layout = BoxLayout(size_hint_y=None, height=50, spacing=10)

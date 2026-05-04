@@ -4,7 +4,7 @@ package.name = navigasiindonesia
 package.domain = com.offline.nav
 
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,txt
+source.include_exts = py,png,jpg,kv,atlas,txt,json,graph
 source.exclude_dirs = data,tests,.git,.github,__pycache__
 
 version = 1.0.0
