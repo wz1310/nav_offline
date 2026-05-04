@@ -8,9 +8,13 @@ import threading
 import urllib.request
 import urllib.parse
 import json
+import ssl
 import networkx as nx
 import math
 from src.routing import save_graph, DATA_DIR
+
+# Buat context SSL yang mengabaikan verifikasi sertifikat (untuk menghindari error di Android)
+ssl_context = ssl._create_unverified_context()
 
 # Daftar area yang bisa dipilih user
 AREA_OPTIONS = {
@@ -56,7 +60,7 @@ def download_area(area_name: str,
             geo_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query_text)}&format=json&limit=1"
             
             req_geo = urllib.request.Request(geo_url, headers=headers)
-            with urllib.request.urlopen(req_geo, timeout=15) as response:
+            with urllib.request.urlopen(req_geo, timeout=15, context=ssl_context) as response:
                 data = json.loads(response.read().decode())
                 
             if not data:
@@ -80,7 +84,7 @@ def download_area(area_name: str,
             post_data = urllib.parse.urlencode({'data': overpass_query}).encode()
             
             req_overpass = urllib.request.Request(overpass_url, data=post_data)
-            with urllib.request.urlopen(req_overpass, timeout=90) as response:
+            with urllib.request.urlopen(req_overpass, timeout=90, context=ssl_context) as response:
                 osm_data = json.loads(response.read().decode())
 
             if 'elements' not in osm_data or not osm_data['elements']:
