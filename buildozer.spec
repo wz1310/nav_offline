@@ -4,12 +4,13 @@ package.name = navigasiindonesia
 package.domain = com.offline.nav
 
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,txt,json,graph
-source.exclude_dirs = data,tests,.git,.github,__pycache__
+source.include_exts = py,png,jpg,kv,atlas,txt,json,html,css,js
+source.include_dirs = assets
+source.exclude_dirs = tests,.git,.github,__pycache__
 
 version = 1.0.0
 
-requirements = python3,kivy==2.3.0,networkx==3.1,openssl,android,plyer
+requirements = python3,kivy==2.3.0,plyer==2.1.0,openssl,android
 
 orientation = portrait
 

@@ -1,109 +1,59 @@
 """
-Offline Indonesia Navigation
-Entry point aplikasi Kivy dengan pelacak error untuk debugging di HP.
+Navigasi Indonesia Pro Launcher
+Sistem Hybrid: Python (Backend) + MapLibre GL (Frontend)
 """
 
 import os
-import sys
-import traceback
+import webbrowser
+from kivy.app import App
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.label import Label
+from kivy.core.window import Window
 
-# Mocking bz2 & lzma: NetworkX memerlukan atribut tertentu (seperti BZ2File) saat impor.
-# Kita buat Dummy class yang memberikan dummy class untuk atribut apa pun agar tidak crash.
-class DummyModule(object):
-    def __getattr__(self, name):
-        class DummyAttr(object):
-            def __init__(self, *args, **kwargs): pass
-        return DummyAttr
-    def __setattr__(self, name, value): pass
+class MainApp(App):
+    def build(self):
+        self.title = "Navigasi Indonesia Pro"
+        Window.clearcolor = (0.06, 0.07, 0.09, 1)
+        
+        layout = BoxLayout(orientation='vertical', padding=40, spacing=20)
+        
+        # Logo / Title
+        layout.add_widget(Label(
+            text="[b]NAVIGASI INDONESIA PRO[/b]",
+            markup=True,
+            font_size='24sp',
+            color=(0.31, 0.76, 0.97, 1),
+            size_hint_y=None, height=100
+        ))
+        
+        layout.add_widget(Label(
+            text="Engine Peta Pro (MapLibre GL) siap digunakan.\nTekan tombol di bawah untuk membuka navigasi.",
+            halign='center',
+            color=(0.7, 0.7, 0.7, 1)
+        ))
+        
+        # Tombol Buka Peta
+        btn_start = Button(
+            text="🚀 BUKA NAVIGASI SEKARANG",
+            size_hint_y=None, height=60,
+            background_color=(0.08, 0.45, 0.8, 1),
+            bold=True
+        )
+        btn_start.bind(on_press=self.launch_map)
+        layout.add_widget(btn_start)
+        
+        layout.add_widget(Label(size_hint_y=1)) # Spacer
+        
+        return layout
 
-for mod_name in ['_bz2', 'bz2', '_lzma', 'lzma']:
-    if mod_name not in sys.modules or sys.modules[mod_name] is None:
-        sys.modules[mod_name] = DummyModule()
+    def launch_map(self, *args):
+        # Path ke file HTML lokal
+        html_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "assets", "index.html"))
+        url = "file://" + html_path.replace("\\", "/")
+        
+        print(f"Launching map at: {url}")
+        webbrowser.open(url)
 
-# Pastikan environment config bersih
-os.environ.setdefault("KIVY_NO_ENV_CONFIG", "1")
-
-def show_error_screen(error_msg):
-    """Tampilkan error di layar jika aplikasi gagal start."""
-    from kivy.app import App
-    from kivy.uix.label import Label
-    from kivy.core.window import Window
-    
-    class ErrorApp(App):
-        def build(self):
-            Window.clearcolor = (0.1, 0, 0, 1)  # Background merah gelap
-            return Label(
-                text=f"APLIKASI CRASH SAAT START:\n\n{error_msg}",
-                font_size="12sp",
-                halign="left",
-                valign="top",
-                text_size=(Window.width - 40, None),
-                padding=(20, 20)
-            )
-    ErrorApp().run()
-
-def request_android_permissions():
-    """Minta izin penyimpanan di Android."""
-    from kivy.utils import platform
-    if platform == 'android':
-        from android.permissions import request_permissions, Permission
-        request_permissions([
-            Permission.READ_EXTERNAL_STORAGE,
-            Permission.WRITE_EXTERNAL_STORAGE
-        ])
-
-try:
-    from kivy.app import App
-    from kivy.uix.screenmanager import ScreenManager, SlideTransition
-    from kivy.core.window import Window
-    from kivy.utils import platform
-    from kivy.uix.boxlayout import BoxLayout
-    from kivy.uix.filechooser import FileChooserIconView
-
-    import os
-    from src.download_screen import DownloadScreen
-    from src.map_screen import MapScreen
-
-    # Ukuran window untuk testing di desktop
-    if platform != "android":
-        Window.size = (400, 720)
-
-    class NavApp(App):
-        title = "Navigasi Indonesia Offline"
-
-        def on_start(self):
-            request_android_permissions()
-
-        def build(self):
-            try:
-                sm = ScreenManager(transition=SlideTransition())
-                sm.add_widget(DownloadScreen(name="download"))
-                sm.add_widget(MapScreen(name="map"))
-
-                # Cek apakah data sudah pernah di-download
-                from src.routing import data_exists
-                if data_exists():
-                    sm.current = "map"
-                else:
-                    sm.current = "download"
-
-                return sm
-            except Exception as e:
-                return Label(text=f"Error in build():\n{traceback.format_exc()}")
-
-    if __name__ == "__main__":
-        try:
-            NavApp().run()
-        except Exception as e:
-            show_error_screen(traceback.format_exc())
-
-except Exception:
-    # Jika impor awal gagal, coba tampilkan error menggunakan Kivy minimal
-    error_info = traceback.format_exc()
-    try:
-        show_error_screen(error_info)
-    except:
-        # Jika Kivy sendiri gagal total, tidak banyak yang bisa dilakukan di HP
-        # tapi setidaknya kita mencoba.
-        print(error_info)
-        sys.exit(1)
+if __name__ == "__main__":
+    MainApp().run()
