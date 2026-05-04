@@ -56,15 +56,22 @@ def download_area(area_name: str,
         try:
             # 1. Geocoding via Nominatim
             on_progress("Mencari koordinat area...", 0.1)
+            # Gunakan User-Agent yang lebih spesifik dan unik
             headers = {
-                'User-Agent': 'NavigasiIndonesia/1.0 (contact: your-email@example.com)',
-                'Accept': 'application/json'
+                'User-Agent': 'NavigasiIndonesiaOfflineApp/1.1 (Android; Kivy; contact: wiza_nav@example.com)',
+                'Accept': 'application/json',
+                'Referer': 'https://github.com/wz1310/nav_offline'
             }
+            
             geo_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query_text)}&format=json&limit=1"
             
-            req_geo = urllib.request.Request(geo_url, headers=headers)
-            with urllib.request.urlopen(req_geo, timeout=15, context=ssl_context) as response:
-                data = json.loads(response.read().decode())
+            try:
+                req_geo = urllib.request.Request(geo_url, headers=headers)
+                with urllib.request.urlopen(req_geo, timeout=15, context=ssl_context) as response:
+                    data = json.loads(response.read().decode())
+            except Exception as geoe:
+                on_error(f"Error Nominatim (Geocoding): {str(geoe)}")
+                return
                 
             if not data:
                 on_error(f"Area tidak ditemukan: {area_name}")
@@ -86,10 +93,13 @@ def download_area(area_name: str,
             overpass_url = "https://overpass-api.de/api/interpreter"
             post_data = urllib.parse.urlencode({'data': overpass_query}).encode()
             
-            # Tambahkan headers ke request Overpass juga!
-            req_overpass = urllib.request.Request(overpass_url, data=post_data, headers=headers)
-            with urllib.request.urlopen(req_overpass, timeout=90, context=ssl_context) as response:
-                osm_data = json.loads(response.read().decode())
+            try:
+                req_overpass = urllib.request.Request(overpass_url, data=post_data, headers=headers)
+                with urllib.request.urlopen(req_overpass, timeout=90, context=ssl_context) as response:
+                    osm_data = json.loads(response.read().decode())
+            except Exception as ove:
+                on_error(f"Error Overpass (Download Jalan): {str(ove)}")
+                return
 
             if 'elements' not in osm_data or not osm_data['elements']:
                 on_error("Tidak ada data jalan di area ini.")
