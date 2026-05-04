@@ -140,7 +140,7 @@ class DownloadScreen(Screen):
             self.status_label.text = f"❌ Gagal membuka picker: {str(e)}"
 
     def _handle_import(self, selection):
-        if not selection:
+        if not selection or selection[0] is None:
             return
             
         file_path = selection[0]
