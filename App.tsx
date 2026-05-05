@@ -45,11 +45,16 @@ export default function App() {
 
     try {
       const response = await axios.get(
-        `https://nominatim.openstreetmap.org/search?q=${text}&format=json&limit=5&addressdetails=1`
+        `https://nominatim.openstreetmap.org/search?q=${text}&format=json&limit=5&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'NavOfflinePro/1.0'
+          }
+        }
       );
       setSuggestions(response.data);
     } catch (error) {
-      console.error(error);
+      console.error("Search error:", error);
     }
   };
 
@@ -160,7 +165,10 @@ export default function App() {
       >
         <MapLibreGL.Camera
           ref={mapCamera}
-          zoomLevel={12}
+          followUserLocation={isNavigating}
+          followUserMode={isNavigating ? "course" : "normal"}
+          zoomLevel={isNavigating ? 18 : 12}
+          pitch={isNavigating ? 60 : 0}
           centerCoordinate={userLocation || [106.8456, -6.2088]}
         />
         
@@ -178,7 +186,7 @@ export default function App() {
               id="routeLayer"
               style={{
                 lineColor: '#4285F4',
-                lineWidth: 6,
+                lineWidth: 8,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
