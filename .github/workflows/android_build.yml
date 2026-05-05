@@ -16,14 +16,16 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'gradle'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --no-package-lock
+        run: npm ci
 
       - name: Prebuild Android project
         run: npx expo prebuild --platform android --no-install
@@ -43,9 +45,6 @@ jobs:
           cd android && ./gradlew assembleDebug
         continue-on-error: true # Expo needs special setup for local builds
 
-      # Alternative for Expo: Use EAS Build (Recommended for Expo)
-      # Since we don't have EAS configured, we provide the manual steps
-      
       - name: List Output
         run: ls -R android/app/build/outputs/apk/ || echo "No APK found yet"
 
